@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online Tests | Rising Stars Academy</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f0f3f8;color:#142b48;font:16px system-ui,sans-serif}
+header{background:#102747;color:#f4ce68;padding:28px 16px;text-align:center}
+header p{color:white}
+main{max-width:720px;margin:24px auto;padding:20px;background:white;border-radius:16px;box-shadow:0 4px 20px #10274715}
+label{display:block;font-weight:700;margin:18px 0 6px}
+select,button{width:100%;padding:12px;font:inherit;border:1px solid #aab7c8;border-radius:8px;background:white}
+button{background:#102747;color:white;font-weight:bold;margin-top:20px;cursor:pointer}
+button:disabled{opacity:.5}
+a{color:inherit}
+#status{padding:14px;background:#fff5dc;border-radius:8px;line-height:1.5}
+fieldset{border:0;padding:0}
+fieldset label{font-weight:400;margin:8px 0}
+small{color:#53657a}
+h1{font-size:26px}
+#quiz label{display:block;padding:8px;border:1px solid #ddd;border-radius:6px}
+footer{text-align:center;padding:20px}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Rising Stars Academy</h1>
+<p>Gujar Khan</p>
+<h2>Online Testing System 2027</h2>
+<p>BISE Rawalpindi</p>
+<a href="index.html">← Back to Home</a>
+</header>
+
+<main>
+<h2>Online MCQs Practice</h2>
+<p id="status" role="status">Question banks are not yet published.</p>
+
+<form id="setup">
+
+<label for="grade">Select Class</label>
+<select id="grade">
+<option value="9">9th Class</option>
+<option value="10">10th Class</option>
+<option value="11">1st Year</option>
+<option value="12">2nd Year</option>
+</select>
+
+<label for="group">Select Group</label>
+<select id="group"></select>
+
+<label for="subject">Select Subject</label>
+<select id="subject"></select>
+
+<label for="mode">Select Syllabus</label>
+<select id="mode">
+<option value="smart">Smart Syllabus (ALP)</option>
+<option value="full">Full Book</option>
+</select>
+
+<label for="scope">Select Chapter</label>
+<select id="scope">
+<option value="all">Complete Selected Syllabus</option>
+</select>
+
+<label for="count">Number of MCQs</label>
+<select id="count">
+<option>10</option>
+<option selected>20</option>
+<option>30</option>
+<option>50</option>
+</select>
+
+<button id="start" disabled>Start Online Test</button>
+<small>Subject options are provisional until verified against the official syllabus.</small>
+</form>
+
+<section id="quiz" hidden></section>
+</main>
+
+<footer>
+Rising Stars Academy, Gujar Khan
+<br>Learn Today. Lead Tomorrow.
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+
+const junior=[
+'English','Urdu','Mathematics','Islamiat',
+'Pakistan Studies','Tarjuma-tul-Quran'
+];
+
+const senior=[
+'English','Urdu','Islamiat',
+'Pakistan Studies','Tarjuma-tul-Quran'
+];
+
+const groups={
+Science:['Physics','Chemistry','Biology','Computer Science'],
+Arts:['General Science','Education','Civics','Economics','General Mathematics'],
+'Pre-Medical':['Physics','Chemistry','Biology'],
+'Pre-Engineering':['Physics','Chemistry','Mathematics'],
+ICS:['Computer Science','Mathematics','Physics','Statistics','Economics'],
+FA:['Education','Civics','Economics','History','Geography','Psychology','Sociology','Arabic','Persian','Punjabi','Statistics','Mathematics'],
+'I.Com':['Principles of Accounting','Principles of Commerce','Principles of Economics','Business Mathematics','Business Statistics','Commercial Geography','Banking']
+};
+
+let bank=[],eligible=[],request=0;
+
+function options(el,values){
+el.replaceChildren(...values.map(v=>new Option(v,v)));
+}
+
+function groupChange(){
+options($('subject'),[...new Set([
+...(+$('grade').value<11?junior:senior),
+...groups[$('group').value]
+])]);
+load();
+}
+
+function gradeChange(){
+options($('group'),+$('grade').value<11?
+['Science','Arts']:
+['Pre-Medical','Pre-Engineering','ICS','FA','I.Com']);
+groupChange();
+}
+
+async function load(){
+const token=++request;
+bank=[];
+$('start').disabled=true;
+$('status').textContent='Checking question bank...';
+
+try{
+const r=await fetch('class'+$('grade').value+'.json',{cache:'no-store'});
+if(!r.ok)throw Error();
+const data=await r.json();
+if(token!==request)return;
+
+bank=Array.isArray(data)?data.filter(q=>
+q.verified===true &&
+q.subject===$('subject').value &&
+q.source &&
+typeof q.question==='string' &&
+Array.isArray(q.options) &&
+q.options.length===4 &&
+Number.isInteger(q.answer) &&
+q.answer>=0 && q.answer<4 &&
+($('mode').value==='full'||q.smart===true)
+):[];
+
+}catch(e){
+if(token!==request)return;
+}
+
+options($('scope'),['all',...new Set(bank.map(q=>q.chapter).filter(Boolean))]);
+$('scope').options[0].textContent='Complete Selected Syllabus';
+refresh();
+}
+
+function refresh(){
+eligible=bank.filter(q=>$('scope').value==='all'||q.chapter===$('scope').value);
+const n=+$('count').value;
+$('start').disabled=eligible.length<n;
+$('status').textContent=eligible.length>=n?
+eligible.length+' verified questions available.':
+eligible.length+' verified questions available. This test is not yet available.';
+}
+
+function shuffle(a){
+a=[...a];
+for(let i=a.length-1;i>0;i--){
+let j=Math.floor(Math.random()*(i+1));
+[a[i],a[j]]=[a[j],a[i]];
+}
+return a;
+}
+
+function node(tag,t){
+const e=document.createElement(tag);
+e.textContent=t;
+return e;
+}
+
+$('setup').onsubmit=e=>{
+e.preventDefault();
+if($('start').disabled)return;
+
+const qs=shuffle(eligible).slice(0,+$('count').value);
+const quiz=$('quiz');
+quiz.replaceChildren();
+quiz.hidden=false;
+$('setup').hidden=true;
+
+const form=document.createElement('form');
+
+qs.forEach((q,i)=>{
+const f=document.createElement('fieldset');
+f.append(node('h3',(i+1)+'. '+q.question));
+
+q.options.forEach((o,j)=>{
+const l=node('label',' '+o);
+const r=document.createElement('input');
+r.type='radio';
+r.name='q'+i;
+r.value=j;
+l.prepend(r);
+f.append(l);
+});
+form.append(f);
+});
+
+form.append(node('button','Submit Test'));
+quiz.append(form);
+
+form.onsubmit=e=>{
+e.preventDefault();
+const data=new FormData(form);
+let score=0;
+
+qs.forEach((q,i)=>{
+if(data.get('q'+i)===String(q.answer))score++;
+});
+
+quiz.replaceChildren(node('h2',
+'Result: '+score+'/'+qs.length+
+' ('+(100*score/qs.length).toFixed(1)+'%)'));
+
+qs.forEach((q,i)=>{
+quiz.append(node('p',
+(i+1)+'. '+q.question+
+' — Correct Answer: '+q.options[q.answer]+
+' | '+(data.get('q'+i)===String(q.answer)?
+'Correct':'Incorrect / unanswered')));
+});
+
+const again=node('button','New Test');
+again.onclick=()=>{
+quiz.hidden=true;
+$('setup').hidden=false;
+};
+quiz.append(again);
+};
+};
+
+$('grade').onchange=gradeChange;
+$('group').onchange=groupChange;
+$('subject').onchange=load;
+$('mode').onchange=load;
+$('scope').onchange=refresh;
+$('count').onchange=refresh;
+
+gradeChange();
+</script>
+</body>
+</html>
